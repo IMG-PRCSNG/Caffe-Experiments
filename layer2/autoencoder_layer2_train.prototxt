@@ -1,0 +1,237 @@
+name: "autoencode_deconv"
+
+# DATA Layers
+layer {
+  name: "autoencode_deconv_data"
+  type: "Data"
+  top: "data"
+  include {
+    phase: TRAIN
+  }
+  transform_param {
+    mean_value: ??
+    mean_value: ??
+    mean_value: ??
+    scale : 0.0039215686
+  }
+  data_param {
+    source: "??"
+    batch_size: ??
+    backend: LMDB
+  }
+}
+layer {
+  name: "autoencode_deconv_test_train"
+  type: "Data"
+  top: "data"
+  include {
+    phase: TEST
+    stage: "test_on_train"
+  }
+  transform_param {
+    mean_value: ??
+    mean_value: ??
+    mean_value: ??
+    scale: 0.0039215686
+  }
+  data_param {
+    source: "??"
+    batch_size: ??
+    backend: LMDB
+  }
+}
+layer {
+  name: "autoencode_deconv_test_test"
+  type: "Data"
+  top: "data"
+  include {
+    phase: TEST
+    stage: "test_on_test"
+  }
+  transform_param {
+    mean_value: ??
+    mean_value: ??
+    mean_value: ??
+    scale: 0.0039215686
+  }
+  data_param {
+    source: "??"
+    batch_size: ??
+    backend: LMDB
+  }
+}
+  
+layer {
+  name: "encode_conv1"
+  type: "Convolution"
+  bottom: "data"
+  top: "encode_conv1"
+  param {
+    lr_mult: 0
+    decay_mult: 0
+  }
+  param {
+    lr_mult: 0
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 32
+    pad: 2
+    kernel_size: 5
+    stride: 1
+  }
+}
+
+layer {
+  name: "encode_relu1"
+  type: "ReLU"
+  bottom: "encode_conv1"
+  top: "encode_conv1"
+}
+
+
+layer {
+  name: "encode_pool1"
+  type: "Pooling"
+  bottom: "encode_conv1"
+  top: "encode_pool1"
+  pooling_param {
+    pool: MAX
+    kernel_size: 3
+    stride: 2
+  }
+}
+
+
+layer {
+  name: "encode_conv2"
+  type: "Convolution"
+  bottom: "encode_pool1"
+  top: "encode_conv2"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 1
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 32
+    pad: 2
+    kernel_size: 5
+    stride: 1
+    weight_filler {
+        type: "msra"
+    }
+    bias_filler {
+        type: "constant"
+        value: 0
+    }
+  }
+}
+
+layer {
+  name: "encode_relu2"
+  type: "ReLU"
+  bottom: "encode_conv2"
+  top: "encode_conv2"
+}
+
+
+layer {
+  name: "decode_conv2"
+  type: "Deconvolution"
+  bottom: "encode_conv2"
+  top: "decode_conv2"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 1
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 32
+    pad: 2
+    kernel_size: 5
+    stride: 1
+    weight_filler {
+        type: "msra" # BILINEAR??
+    }
+    bias_filler {
+        type: "constant"
+        value: 0
+    }
+  }
+}
+layer {
+  name: "decode_relu2"
+  type: "ReLU"
+  bottom: "decode_conv2"
+  top: "decode_conv2"
+}
+
+layer {
+
+    name: "loss"
+    type: "EuclideanLoss"
+    bottom: "decode_conv2"
+    bottom: "encode_pool1"
+    top: "l2_loss"
+    loss_weight: 1
+}
+
+# Add dummy layer for copying weights of deconv1
+layer {
+    name: "dummy1"
+    type: "DummyData"
+    top: "dummy1"
+    dummy_data_param {
+        num: 1
+        channels: 32
+        height: 1
+        width: 1
+        data_filler {
+            type: "constant"
+            value: 0
+        }
+   }
+   include {
+    phase: TRAIN
+   }
+}
+
+layer {
+  name: "decode_conv1"
+  type: "Deconvolution"
+  bottom: "dummy1"
+  top: "decode_conv1"
+  param {
+    lr_mult: 0
+    decay_mult: 0
+  }
+  param {
+    lr_mult: 0
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 3
+    pad: 2
+    kernel_size: 5
+    stride: 1
+  }
+  include {
+    phase: TRAIN
+  }
+}
+
+layer {
+  name: "silencer"
+  type: "Silence"
+  bottom: "decode_conv1"
+  include {
+    phase: TRAIN
+  }
+}

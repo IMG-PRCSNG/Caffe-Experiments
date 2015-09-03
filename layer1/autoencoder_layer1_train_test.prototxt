@@ -1,0 +1,144 @@
+name: "autoencode_deconv"
+
+# DATA Layers
+layer {
+  name: "autoencode_deconv_data"
+  type: "Data"
+  top: "data"
+  include {
+    phase: TRAIN
+  }
+  transform_param {
+    mean_value: ??
+    mean_value: ??
+    mean_value: ??
+    scale : 0.0039215686
+  }
+  data_param {
+    source: "??"
+    batch_size: ??
+    backend: LMDB
+  }
+}
+layer {
+  name: "autoencode_deconv_test_train"
+  type: "Data"
+  top: "data"
+  include {
+    phase: TEST
+    stage: "test_on_train"
+  }
+  transform_param {
+    mean_value: ??
+    mean_value: ??
+    mean_value: ??
+    scale: 0.0039215686
+  }
+  data_param {
+    source: "??"
+    batch_size: ??
+    backend: LMDB
+  }
+}
+layer {
+  name: "autoencode_deconv_test_test"
+  type: "Data"
+  top: "data"
+  include {
+    phase: TEST
+    stage: "test_on_test"
+  }
+  transform_param {
+    mean_value: ??
+    mean_value: ??
+    mean_value: ??
+    scale: 0.0039215686
+  }
+  data_param {
+    source: "??"
+    batch_size: ??
+    backend: LMDB
+  }
+}
+
+# Layerwise learn the layers
+
+layer {
+  name: "encode_conv1"
+  type: "Convolution"
+  bottom: "data"
+  top: "encode_conv1"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 1
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 32
+    pad: 2
+    kernel_size: 5
+    stride: 1
+    weight_filler {
+        type: "msra"
+    }
+    bias_filler {
+        type: "constant"
+        value: 0
+    }
+  }
+}
+
+# Can change to sigmoid, tanh etc.
+layer {
+  name: "encode_relu1"
+  type: "ReLU"
+  bottom: "encode_conv1"
+  top: "encode_conv1"
+}
+
+layer {
+  name: "decode_conv1"
+  type: "Deconvolution"
+  bottom: "encode_conv1"
+  top: "decode_conv1"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 1
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 3
+    pad: 2
+    kernel_size: 5
+    stride: 1
+    weight_filler {
+        type: "msra" # BILINEAR?
+    }
+    bias_filler {
+        type: "constant"
+        value: 0
+    }
+  }
+}
+layer {
+  name: "decode_relu1"
+  type: "ReLU"
+  bottom: "decode_conv1"
+  top: "decode_conv1"
+}
+
+layer {
+
+    name: "loss"
+    type: "EuclideanLoss"
+    bottom: "decode_conv1"
+    bottom: "data"
+    top: "l2_loss"
+    loss_weight: 1
+}
